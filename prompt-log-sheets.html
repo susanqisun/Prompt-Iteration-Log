@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prompt Iteration Log</title>
+<style>
+  :root {
+    --paper: #EEF0F2;
+    --card: #FBFBF9;
+    --rule: #B7C3D1;
+    --ink: #1F2A44;
+    --ink-soft: #4A5670;
+    --red-pen: #A8362A;
+    --teal: #2F6F62;
+    --teal-bg: #E6F0EC;
+    --gold: #A8752E;
+    --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    --serif: Iowan Old Style, "Palatino Linotype", Palatino, Georgia, serif;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    font-family: var(--sans);
+    color: var(--ink);
+    line-height: 1.5;
+  }
+  header {
+    background: var(--ink);
+    color: #F3F4F1;
+    padding: 1.8rem 1.5rem 1.4rem;
+  }
+  header .wrap, main .wrap { max-width: 900px; margin: 0 auto; }
+  header h1 {
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: 1.8rem;
+    margin: 0 0 0.3rem;
+  }
+  header p { margin: 0; color: #C7CCD8; font-size: 0.92rem; }
+
+  main { padding: 1.8rem 1.5rem 3rem; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 1.4rem 1.5rem;
+    margin-bottom: 1.4rem;
+  }
+  .card h2 {
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: 1.15rem;
+    margin: 0 0 1rem;
+  }
+  label {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 0.3rem;
+  }
+  .field { margin-bottom: 1rem; }
+  input[type="text"], select, textarea {
+    width: 100%;
+    font-family: var(--sans);
+    font-size: 0.95rem;
+    padding: 0.55rem 0.7rem;
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: #fff;
+    color: var(--ink);
+  }
+  textarea { font-family: var(--mono); font-size: 0.85rem; line-height: 1.5; resize: vertical; min-height: 80px; }
+
+  button.primary {
+    background: var(--ink);
+    color: #fff;
+    border: none;
+    padding: 0.65rem 1.3rem;
+    border-radius: 3px;
+    font-size: 0.92rem;
+    cursor: pointer;
+  }
+  button.primary:hover { opacity: 0.9; }
+
+  .toolbar { display: flex; gap: 0.6rem; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; }
+  .toolbar select, .toolbar input { width: auto; min-width: 160px; }
+  .count-pill {
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    color: var(--ink-soft);
+    margin-left: auto;
+  }
+
+  .entry {
+    border-top: 1px solid var(--rule);
+    padding: 1rem 0;
+  }
+  .entry:first-child { border-top: none; }
+  .entry-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.8rem;
+    flex-wrap: wrap;
+  }
+  .entry-project { font-weight: 700; font-size: 0.95rem; }
+  .entry-task { font-size: 0.85rem; color: var(--ink-soft); }
+  .entry-meta { font-family: var(--mono); font-size: 0.75rem; color: var(--ink-soft); }
+  .tag {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    padding: 0.15rem 0.5rem;
+    border-radius: 10px;
+    background: var(--teal-bg);
+    color: var(--teal);
+    margin-left: 0.5rem;
+  }
+  .tag-red {
+    background: #FBEAE7;
+    color: var(--red-pen);
+  }
+  .final-flag {
+    color: var(--gold);
+    font-weight: 700;
+    font-size: 0.72rem;
+    letter-spacing: 0.03em;
+    margin-left: 0.4rem;
+  }
+  .entry-body { margin-top: 0.6rem; }
+  .entry-block { margin-bottom: 0.6rem; }
+  .entry-block .k { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--gold); font-weight: 700; margin-bottom: 0.15rem; }
+  .entry-block .v { font-size: 0.88rem; white-space: pre-wrap; }
+  .entry-block .v.mono { font-family: var(--mono); font-size: 0.82rem; background: #fff; border: 1px solid var(--rule); border-radius: 3px; padding: 0.5rem 0.6rem; }
+  .delete-btn {
+    background: none;
+    border: none;
+    color: var(--red-pen);
+    font-size: 0.78rem;
+    cursor: pointer;
+    text-decoration: underline;
+  }
+  .empty { color: var(--ink-soft); font-size: 0.9rem; padding: 1rem 0; }
+  .status { font-size: 0.8rem; color: var(--ink-soft); margin-top: 0.5rem; }
+  .status.err { color: var(--red-pen); }
+
+  .diff-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--gold); font-weight: 700; margin: 0.7rem 0 0.3rem; }
+  .diff-box { font-family: var(--mono); font-size: 0.8rem; background: #fff; border: 1px solid var(--rule); border-radius: 3px; padding: 0.6rem 0.7rem; white-space: pre-wrap; line-height: 1.6; }
+  .diff-add { background: var(--teal-bg); color: var(--teal); }
+  .diff-del { background: #FBEAE7; color: var(--red-pen); text-decoration: line-through; }
+
+  .version-item { border-top: 1px dashed var(--rule); padding: 0.6rem 0; }
+  .version-item:first-child { border-top: none; }
+  .version-head { font-size: 0.78rem; color: var(--ink-soft); font-family: var(--mono); margin-bottom: 0.3rem; }
+
+  .bar-row { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.55rem; font-size: 0.85rem; }
+  .bar-label { width: 190px; flex-shrink: 0; }
+  .bar-track { flex: 1; background: #E7EAEC; border-radius: 3px; height: 10px; overflow: hidden; }
+  .bar-fill { background: var(--teal); height: 100%; }
+  .bar-count { width: 28px; text-align: right; font-family: var(--mono); font-size: 0.78rem; color: var(--ink-soft); }
+
+  .stat-row { display: flex; gap: 1.5rem; margin-bottom: 1.2rem; flex-wrap: wrap; }
+  .stat .n { font-family: var(--serif); font-size: 1.7rem; }
+  .stat .l { font-size: 0.75rem; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.04em; }
+
+  .summary-box { font-size: 0.9rem; background: #fff; border: 1px solid var(--rule); border-radius: 3px; padding: 0.9rem 1rem; margin-top: 0.7rem; white-space: pre-wrap; }
+  button.secondary {
+    background: #fff;
+    color: var(--ink);
+    border: 1px solid var(--rule);
+    padding: 0.5rem 1rem;
+    border-radius: 3px;
+    font-size: 0.85rem;
+    cursor: pointer;
+  }
+
+  .pagination { display: flex; gap: 0.4rem; justify-content: center; margin-top: 1rem; flex-wrap: wrap; }
+  .page-btn {
+    background: #fff;
+    border: 1px solid var(--rule);
+    color: var(--ink-soft);
+    padding: 0.35rem 0.7rem;
+    border-radius: 3px;
+    font-size: 0.82rem;
+    font-family: var(--mono);
+    cursor: pointer;
+  }
+  .page-btn.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .page-btn:disabled { opacity: 0.4; cursor: default; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <h1>Prompt Iteration Log</h1>
+    <p>Record each prompt version, see what changed from the last one, and build a library of what actually works.</p>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <div id="config-banner" class="card" style="display:none; border-color: var(--red-pen); background: #FBEAE7;">
+    <strong>Not connected yet.</strong> Open this file's code, find <code>WEB_APP_URL</code> near the top of the &lt;script&gt; section, and paste in your deployed Google Apps Script Web App URL.
+  </div>
+
+  <div class="card">
+    <div class="field" style="margin-bottom:0;">
+      <label>User Name</label>
+      <input type="text" id="f-username" placeholder="e.g. Susan">
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>New Entry</h2>
+
+    <div class="field">
+      <label>Project</label>
+      <input type="text" id="f-project" placeholder="e.g. Undergraduate Student Survey">
+    </div>
+
+    <div class="field">
+      <label>Task</label>
+      <input type="text" id="f-task" placeholder="e.g. Summarize subgroup breakdown">
+    </div>
+
+    <div class="field">
+      <label>Issue type</label>
+      <select id="f-issue">
+        <option value="Missing Instruction">Missing Instruction</option>
+        <option value="Data Interpretation Error">Data Interpretation Error</option>
+        <option value="Wrong Calculation or Logic">Wrong Calculation or Logic</option>
+        <option value="Incomplete Output">Incomplete Output</option>
+        <option value="Wrong Output Format">Wrong Output Format</option>
+        <option value="Overly Verbose Output">Overly Verbose Output</option>
+        <option value="Unsupported Content">Unsupported Content</option>
+        <option value="Safety Issue">Safety Issue</option>
+        <option value="Overgeneration">Overgeneration</option>
+        <option value="Mark as Final Version">Mark as Final Version</option>
+        <option value="Other">Other</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label>Model</label>
+      <select id="f-model">
+        <option value="Claude">Claude</option>
+        <option value="GPT">GPT</option>
+        <option value="Gemini">Gemini</option>
+        <option value="Other">Other</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label>What was wrong with the result?</label>
+      <textarea id="f-wrong" placeholder="Describe what came back that you didn't want..."></textarea>
+    </div>
+
+    <div class="field">
+      <label>Prompt what you ran</label>
+      <textarea id="f-prompt" placeholder="Paste the prompt text..."></textarea>
+    </div>
+
+    <div class="field">
+      <div class="diff-label">Compared to your last version for this project</div>
+      <div class="diff-box" id="diff-box">Enter a project name above to see its version history here.</div>
+    </div>
+
+    <button class="primary" id="save-btn">Save Entry</button>
+    <div class="status" id="save-status"></div>
+  </div>
+
+  <div class="card">
+    <h2>History</h2>
+    <div class="toolbar">
+      <select id="filter-project">
+        <option value="">All projects</option>
+      </select>
+      <span class="count-pill" id="count-pill"></span>
+    </div>
+    <div id="entries"></div>
+    <div class="pagination" id="pagination"></div>
+  </div>
+
+  <div class="card">
+    <h2>Insights</h2>
+    <div id="insights-empty" class="empty" style="display:none;">Add a few entries to see patterns here.</div>
+    <div id="insights-body" style="display:none;">
+      <div class="stat-row">
+        <div class="stat"><div class="n" id="stat-total">0</div><div class="l">Revisions logged</div></div>
+        <div class="stat"><div class="n" id="stat-projects">0</div><div class="l">Projects</div></div>
+        <div class="stat"><div class="n" id="stat-top-project">—</div><div class="l">Most iterated</div></div>
+      </div>
+      <div class="diff-label">Issues caught, by type</div>
+      <div id="issue-bars"></div>
+      <button class="secondary" id="summary-btn" style="margin-top:0.8rem;">Generate Log Summary</button>
+      <div class="summary-box" id="summary-box" style="display:none;"></div>
+      <div class="summary-box" id="reusable-box" style="display:none;"></div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+  const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyCYqrVZwj1jfk8s2e5kZl9TmiHmdZGJWDDfiHOY6-TxSf4p8qmqWomrEEOXCMDyOZQLg/exec";
+
+  let allEntries = [];
+  let currentPage = 1;
+  const PAGE_SIZE = 3;
+
+  function configured() {
+    return WEB_APP_URL && !WEB_APP_URL.includes('PASTE_YOUR');
+  }
+
+  async function loadEntries() {
+    if (!configured()) {
+      document.getElementById('config-banner').style.display = 'block';
+      allEntries = [];
+      renderFilterOptions();
+      renderEntries();
+      renderInsights();
+      return;
+    }
+    try {
+      const res = await fetch(WEB_APP_URL);
+      const data = await res.json();
+      allEntries = data.map(e => ({ ...e, ts: Number(e.ts) }));
+    } catch (err) {
+      allEntries = [];
+      const statusEl = document.getElementById('save-status');
+      statusEl.className = 'status err';
+      statusEl.textContent = 'Could not load entries from Google Sheets — check the Web App URL and access settings.';
+    }
+    renderFilterOptions();
+    renderEntries();
+    renderInsights();
+    updateDiffPanel();
+  }
+
+  async function postToSheet(payload) {
+    const res = await fetch(WEB_APP_URL, {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    return data.map(e => ({ ...e, ts: Number(e.ts) }));
+  }
+
+  function wordDiff(oldStr, newStr) {
+    const oldWords = oldStr.split(/(\s+)/);
+    const newWords = newStr.split(/(\s+)/);
+    const m = oldWords.length, n = newWords.length;
+    const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+    for (let i = m - 1; i >= 0; i--) {
+      for (let j = n - 1; j >= 0; j--) {
+        dp[i][j] = oldWords[i] === newWords[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+      }
+    }
+    let i = 0, j = 0;
+    const result = [];
+    while (i < m && j < n) {
+      if (oldWords[i] === newWords[j]) { result.push({ t: 'same', v: oldWords[i] }); i++; j++; }
+      else if (dp[i + 1][j] >= dp[i][j + 1]) { result.push({ t: 'del', v: oldWords[i] }); i++; }
+      else { result.push({ t: 'add', v: newWords[j] }); j++; }
+    }
+    while (i < m) { result.push({ t: 'del', v: oldWords[i] }); i++; }
+    while (j < n) { result.push({ t: 'add', v: newWords[j] }); j++; }
+    return result;
+  }
+
+  function normalize(str) {
+    return (str || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  }
+
+  function entriesForProject(project) {
+    const p = normalize(project);
+    return allEntries.filter(e => normalize(e.project) === p).sort((a, b) => b.ts - a.ts);
+  }
+
+  function updateDiffPanel() {
+    const project = document.getElementById('f-project').value.trim();
+    const prompt = document.getElementById('f-prompt').value;
+    const box = document.getElementById('diff-box');
+
+    if (!project) {
+      box.textContent = 'Enter a project name above to see its version history here.';
+      return;
+    }
+
+    const history = entriesForProject(project);
+
+    if (history.length === 0) {
+      box.textContent = 'No previous version logged yet for this project.';
+      return;
+    }
+
+    const prev = history[0];
+    const diff = wordDiff(prev.prompt, prompt || '');
+    box.innerHTML = diff.map(part => {
+      if (part.t === 'same') return escapeHtml(part.v);
+      if (part.t === 'add') return '<span class="diff-add">' + escapeHtml(part.v) + '</span>';
+      return '<span class="diff-del">' + escapeHtml(part.v) + '</span>';
+    }).join('');
+  }
+
+  document.getElementById('f-project').addEventListener('input', updateDiffPanel);
+  document.getElementById('f-prompt').addEventListener('input', updateDiffPanel);
+
+  function renderInsights() {
+    const total = allEntries.length;
+    const emptyEl = document.getElementById('insights-empty');
+    const bodyEl = document.getElementById('insights-body');
+    if (total === 0) { emptyEl.style.display = 'block'; bodyEl.style.display = 'none'; return; }
+    emptyEl.style.display = 'none';
+    bodyEl.style.display = 'block';
+
+    const projectCounts = {};
+    const issueCounts = {};
+    allEntries.forEach(e => {
+      projectCounts[e.project] = (projectCounts[e.project] || 0) + 1;
+      issueCounts[e.issue] = (issueCounts[e.issue] || 0) + 1;
+    });
+    const projects = Object.keys(projectCounts);
+    const topProjectEntry = Object.entries(projectCounts).sort((a, b) => b[1] - a[1])[0];
+
+    document.getElementById('stat-total').textContent = total;
+    document.getElementById('stat-projects').textContent = projects.length;
+    document.getElementById('stat-top-project').textContent = topProjectEntry ? topProjectEntry[0] : '—';
+
+    const maxIssueCount = Math.max(...Object.values(issueCounts));
+    const barsEl = document.getElementById('issue-bars');
+    barsEl.innerHTML = Object.entries(issueCounts)
+      .sort((a, b) => b[1] - a[1])
+      .map(([label, count]) => {
+        return '<div class="bar-row"><div class="bar-label">' + escapeHtml(label) + '</div><div class="bar-track"><div class="bar-fill" style="width:' + ((count / maxIssueCount) * 100) + '%"></div></div><div class="bar-count">' + count + '</div></div>';
+      }).join('');
+
+    document.getElementById('summary-btn').onclick = () => {
+      const topIssue = Object.entries(issueCounts).sort((a, b) => b[1] - a[1])[0];
+      const summaryEl = document.getElementById('summary-box');
+      const text = 'Across ' + projects.length + ' project' + (projects.length === 1 ? '' : 's') + ' and ' + total + ' logged revision' + (total === 1 ? '' : 's') + ', the most common issue caught before finalizing was "' + topIssue[0] + '" (' + topIssue[1] + ' time' + (topIssue[1] === 1 ? '' : 's') + '). The most-iterated project was "' + topProjectEntry[0] + '" (' + topProjectEntry[1] + ' version' + (topProjectEntry[1] === 1 ? '' : 's') + '), each round reviewed and corrected before use.';
+      summaryEl.textContent = text;
+      summaryEl.style.display = 'block';
+
+      const reusableEl = document.getElementById('reusable-box');
+      const finalEntries = allEntries.filter(e => e.issue === 'Mark as Final Version');
+      let reusableText = 'Most reusable prompt — no version has been marked final yet.';
+      if (finalEntries.length > 0) {
+        let candidate = finalEntries.find(e => e.project === topProjectEntry[0]);
+        if (!candidate) candidate = finalEntries.sort((a, b) => b.ts - a.ts)[0];
+        const preview = candidate.prompt.length > 160 ? candidate.prompt.slice(0, 160) + '…' : candidate.prompt;
+        const label = candidate.project + (candidate.task ? ' / ' + candidate.task : '');
+        reusableText = 'Most reusable prompt — "' + label + '": "' + preview + '"';
+      }
+      reusableEl.textContent = reusableText;
+      reusableEl.style.display = 'block';
+
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(text + '\n\n' + reusableText).catch(() => {});
+      }
+    };
+  }
+
+  function renderFilterOptions() {
+    const sel = document.getElementById('filter-project');
+    const current = sel.value;
+    const projects = [...new Set(allEntries.map(e => e.project).filter(Boolean))].sort();
+    sel.innerHTML = '<option value="">All projects</option>' +
+      projects.map(p => '<option value="' + escapeHtml(p) + '">' + escapeHtml(p) + '</option>').join('');
+    sel.value = projects.includes(current) ? current : '';
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str || '';
+    return div.innerHTML;
+  }
+
+  function renderEntries() {
+    const filter = document.getElementById('filter-project').value;
+    const container = document.getElementById('entries');
+    const filtered = allEntries
+      .filter(e => !filter || e.project === filter)
+      .sort((a, b) => b.ts - a.ts);
+
+    document.getElementById('count-pill').textContent =
+      filtered.length + (filtered.length === 1 ? ' entry' : ' entries');
+
+    const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+    if (currentPage > totalPages) currentPage = totalPages;
+    if (currentPage < 1) currentPage = 1;
+
+    if (filtered.length === 0) {
+      container.innerHTML = '<div class="empty">No entries yet. Add your first one above.</div>';
+      document.getElementById('pagination').innerHTML = '';
+      return;
+    }
+
+    const startIdx = (currentPage - 1) * PAGE_SIZE;
+    const pageItems = filtered.slice(startIdx, startIdx + PAGE_SIZE);
+
+    container.innerHTML = pageItems.map(e => {
+      const finalTag = e.issue === 'Mark as Final Version' ? '<span class="final-flag">(MARK AS FINAL VERSION)</span>' : '';
+      const tagClass = e.issue === 'Mark as Final Version' ? 'tag' : 'tag tag-red';
+      const userBadge = e.user ? '<span class="entry-task">· By ' + escapeHtml(e.user) + '</span>' : '';
+      return '<div class="entry"><div class="entry-head"><div><span class="entry-project">' + escapeHtml(e.project) + '</span> <span class="entry-task">' + escapeHtml(e.task || '') + '</span>' + userBadge + '<span class="' + tagClass + '">' + escapeHtml(e.issue) + '</span></div><div class="entry-meta">' + new Date(e.ts).toLocaleString() + ' · <button class="delete-btn" data-id="' + e.id + '">delete</button></div></div><div class="entry-body"><div class="entry-block"><div class="k">What was wrong</div><div class="v">' + escapeHtml(e.wrong) + '</div></div><div class="entry-block"><div class="k">Prompt what you ran' + finalTag + '</div><div class="v mono">' + escapeHtml(e.prompt) + '</div></div></div></div>';
+    }).join('');
+
+    container.querySelectorAll('.delete-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!configured()) return;
+        try {
+          allEntries = await postToSheet({ action: 'delete', id: btn.dataset.id });
+        } catch (err) {
+          allEntries = allEntries.filter(e => e.id !== btn.dataset.id);
+        }
+        renderFilterOptions();
+        renderEntries();
+        renderInsights();
+        updateDiffPanel();
+      });
+    });
+
+    const paginationEl = document.getElementById('pagination');
+    let pageButtons = '<button class="page-btn" id="page-prev" ' + (currentPage === 1 ? 'disabled' : '') + '>‹ Prev</button>';
+    for (let p = 1; p <= totalPages; p++) {
+      pageButtons += '<button class="page-btn ' + (p === currentPage ? 'active' : '') + '" data-page="' + p + '">' + p + '</button>';
+    }
+    pageButtons += '<button class="page-btn" id="page-next" ' + (currentPage === totalPages ? 'disabled' : '') + '>Next ›</button>';
+    paginationEl.innerHTML = pageButtons;
+
+    const prevBtn = document.getElementById('page-prev');
+    const nextBtn = document.getElementById('page-next');
+    if (prevBtn) prevBtn.addEventListener('click', () => { currentPage--; renderEntries(); });
+    if (nextBtn) nextBtn.addEventListener('click', () => { currentPage++; renderEntries(); });
+    paginationEl.querySelectorAll('[data-page]').forEach(btn => {
+      btn.addEventListener('click', () => { currentPage = parseInt(btn.dataset.page, 10); renderEntries(); });
+    });
+  }
+
+  document.getElementById('filter-project').addEventListener('change', () => {
+    currentPage = 1;
+    renderEntries();
+  });
+
+  document.getElementById('save-btn').addEventListener('click', async () => {
+    const user = document.getElementById('f-username').value.trim();
+    const project = document.getElementById('f-project').value.trim();
+    const task = document.getElementById('f-task').value.trim();
+    const issue = document.getElementById('f-issue').value;
+    const model = document.getElementById('f-model').value;
+    const wrong = document.getElementById('f-wrong').value.trim();
+    const prompt = document.getElementById('f-prompt').value.trim();
+    const statusEl = document.getElementById('save-status');
+
+    if (!project || !prompt) {
+      statusEl.textContent = 'Add at least a project name and the prompt text.';
+      statusEl.className = 'status err';
+      return;
+    }
+    if (!configured()) {
+      statusEl.className = 'status err';
+      statusEl.textContent = 'Set WEB_APP_URL in the code before saving — see the banner above.';
+      return;
+    }
+
+    const entry = {
+      id: Date.now().toString() + Math.random().toString(36).slice(2, 7),
+      project: project, task: task, issue: issue, model: model, user: user, prompt: prompt, wrong: wrong,
+      ts: Date.now()
+    };
+
+    statusEl.className = 'status';
+    statusEl.textContent = 'Saving...';
+    try {
+      allEntries = await postToSheet({ action: 'add', entry: entry });
+      statusEl.textContent = 'Saved.';
+    } catch (err) {
+      statusEl.className = 'status err';
+      statusEl.textContent = 'Could not save to Google Sheets — check the Web App URL and access settings.';
+      return;
+    }
+
+    document.getElementById('f-project').value = '';
+    document.getElementById('f-task').value = '';
+    document.getElementById('f-wrong').value = '';
+    document.getElementById('f-prompt').value = '';
+
+    currentPage = 1;
+    renderFilterOptions();
+    renderEntries();
+    renderInsights();
+    updateDiffPanel();
+  });
+
+  loadEntries();
+</script>
+
+</body>
+</html>
