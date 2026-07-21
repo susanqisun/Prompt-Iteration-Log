@@ -1,7 +1,7 @@
 # Prompt-Iteration-Log
 A shareable internal tool for documenting prompt evolution, classifying AI failure modes, comparing revisions, and identifying reusable prompts.
 
-## Goal / Purpose
+## Goal
 
 To create a simple, shareable tool that helps institutional research teams document how prompts evolve, understand why revisions were made, and reuse prompts that have produced reliable results. The project was designed especially for non-technical colleagues who may benefit from examples, revision histories, and clear guidance when using LLMs for research tasks.
 
