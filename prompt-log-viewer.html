@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prompt Iteration Log — Data Viewer</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --paper: #EEF0F2;
+    --card: #FBFBF9;
+    --rule: #B7C3D1;
+    --ink: #1F2A44;
+    --ink-soft: #4A5670;
+    --red-pen: #A8362A;
+    --teal: #2F6F62;
+    --teal-bg: #E6F0EC;
+    --gold: #A8752E;
+    --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    --serif: Iowan Old Style, "Palatino Linotype", Palatino, Georgia, serif;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    font-family: var(--sans);
+    color: var(--ink);
+    line-height: 1.5;
+  }
+  header {
+    background: var(--ink);
+    color: #F3F4F1;
+    padding: 1.8rem 1.5rem 1.4rem;
+  }
+  header .wrap, main .wrap { max-width: 1100px; margin: 0 auto; }
+  header h1 {
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: 1.7rem;
+    margin: 0 0 0.3rem;
+  }
+  header p { margin: 0; color: #C7CCD8; font-size: 0.92rem; }
+
+  main { padding: 1.8rem 1.5rem 3rem; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 1.4rem 1.5rem;
+    margin-bottom: 1.4rem;
+    overflow-x: auto;
+  }
+
+  .toolbar { display: flex; gap: 0.7rem; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; }
+  select, input[type="text"] {
+    font-family: var(--sans);
+    font-size: 0.9rem;
+    padding: 0.5rem 0.65rem;
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: #fff;
+    color: var(--ink);
+    min-width: 160px;
+  }
+  .count-pill {
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    color: var(--ink-soft);
+    margin-left: auto;
+  }
+
+  button.primary {
+    background: var(--ink);
+    color: #fff;
+    border: none;
+    padding: 0.6rem 1.2rem;
+    border-radius: 3px;
+    font-size: 0.9rem;
+    cursor: pointer;
+  }
+  button.primary:hover { opacity: 0.9; }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 0.85rem;
+  }
+  thead th {
+    text-align: left;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--gold);
+    font-weight: 700;
+    padding: 0.5rem 0.7rem;
+    border-bottom: 2px solid var(--rule);
+    white-space: nowrap;
+  }
+  tbody td {
+    padding: 0.55rem 0.7rem;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  tbody tr:hover { background: #F5F6F3; }
+  .cell-prompt, .cell-wrong {
+    max-width: 260px;
+    white-space: pre-wrap;
+    font-family: var(--mono);
+    font-size: 0.78rem;
+  }
+  .final-row { background: var(--teal-bg); }
+  .empty { color: var(--ink-soft); font-size: 0.9rem; padding: 1rem 0; }
+  .status { font-size: 0.82rem; color: var(--ink-soft); margin-top: 0.6rem; }
+  .status.err { color: var(--red-pen); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <h1>Prompt Iteration Log — Data Viewer</h1>
+    <p>View the full log and download it as an Excel file for offline analysis. To see your most recent entries, refresh this page.</p>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <div id="config-banner" class="card" style="display:none; border-color: var(--red-pen); background: #FBEAE7;">
+    <strong>Not connected yet.</strong> Open this file's code, find <code>WEB_APP_URL</code> near the top of the &lt;script&gt; section, and paste in your deployed Google Apps Script Web App URL — the same one used by the main tool.
+  </div>
+
+  <div class="card">
+    <div class="toolbar">
+      <select id="filter-project">
+        <option value="">All projects</option>
+      </select>
+      <button class="primary" id="download-btn">Download as Excel (.xlsx)</button>
+      <span class="count-pill" id="count-pill"></span>
+    </div>
+    <div id="table-wrap"></div>
+    <div class="status" id="status"></div>
+  </div>
+
+</main>
+
+<script>
+  // ---- CONFIGURE THIS ----
+  // Paste the same Web App URL used in your prompt-log-sheets.html file.
+  const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyCYqrVZwj1jfk8s2e5kZl9TmiHmdZGJWDDfiHOY6-TxSf4p8qmqWomrEEOXCMDyOZQLg/exec";
+  // ------------------------
+
+  let allEntries = [];
+
+  function configured() {
+    return WEB_APP_URL && !WEB_APP_URL.includes('PASTE_YOUR');
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str || '';
+    return div.innerHTML;
+  }
+
+  async function loadEntries() {
+    if (!configured()) {
+      document.getElementById('config-banner').style.display = 'block';
+      return;
+    }
+    try {
+      const res = await fetch(WEB_APP_URL);
+      const data = await res.json();
+      allEntries = data.map(e => ({ ...e, ts: Number(e.ts) })).sort((a, b) => b.ts - a.ts);
+      renderFilterOptions();
+      renderTable();
+    } catch (err) {
+      document.getElementById('status').className = 'status err';
+      document.getElementById('status').textContent = 'Could not load data — check the Web App URL and access settings.';
+    }
+  }
+
+  function renderFilterOptions() {
+    const sel = document.getElementById('filter-project');
+    const projects = [...new Set(allEntries.map(e => e.project).filter(Boolean))].sort();
+    sel.innerHTML = '<option value="">All projects</option>' +
+      projects.map(p => '<option value="' + escapeHtml(p) + '">' + escapeHtml(p) + '</option>').join('');
+  }
+
+  function filteredEntries() {
+    const filter = document.getElementById('filter-project').value;
+    return filter ? allEntries.filter(e => e.project === filter) : allEntries;
+  }
+
+  function renderTable() {
+    const entries = filteredEntries();
+    document.getElementById('count-pill').textContent = entries.length + (entries.length === 1 ? ' entry' : ' entries');
+
+    if (entries.length === 0) {
+      document.getElementById('table-wrap').innerHTML = '<div class="empty">No entries yet.</div>';
+      return;
+    }
+
+    const rows = entries.map(e => {
+      const rowClass = e.issue === 'Mark as Final Version' ? 'final-row' : '';
+      return '<tr class="' + rowClass + '">' +
+        '<td>' + new Date(e.ts).toLocaleString() + '</td>' +
+        '<td>' + escapeHtml(e.project) + '</td>' +
+        '<td>' + escapeHtml(e.task || '') + '</td>' +
+        '<td>' + escapeHtml(e.issue) + '</td>' +
+        '<td>' + escapeHtml(e.model || '') + '</td>' +
+        '<td>' + escapeHtml(e.user || '') + '</td>' +
+        '<td class="cell-wrong">' + escapeHtml(e.wrong) + '</td>' +
+        '<td class="cell-prompt">' + escapeHtml(e.prompt) + '</td>' +
+        '</tr>';
+    }).join('');
+
+    document.getElementById('table-wrap').innerHTML =
+      '<table><thead><tr>' +
+      '<th>Date</th><th>Project</th><th>Task</th><th>Issue Type</th><th>Model</th><th>User</th><th>What Was Wrong</th><th>Prompt</th>' +
+      '</tr></thead><tbody>' + rows + '</tbody></table>';
+  }
+
+  document.getElementById('filter-project').addEventListener('change', renderTable);
+
+  document.getElementById('download-btn').addEventListener('click', () => {
+    const entries = filteredEntries();
+    if (entries.length === 0) {
+      document.getElementById('status').className = 'status err';
+      document.getElementById('status').textContent = 'No entries to export.';
+      return;
+    }
+    const exportData = entries.map(e => ({
+      Date: new Date(e.ts).toLocaleString(),
+      Project: e.project,
+      Task: e.task || '',
+      'Issue Type': e.issue,
+      Model: e.model || '',
+      User: e.user || '',
+      'What Was Wrong': e.wrong,
+      'Prompt What You Ran': e.prompt
+    }));
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    ws['!cols'] = [
+      { wch: 18 }, { wch: 22 }, { wch: 22 }, { wch: 20 }, { wch: 10 }, { wch: 14 }, { wch: 40 }, { wch: 50 }
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Prompt Log');
+    XLSX.writeFile(wb, 'prompt-iteration-log.xlsx');
+  });
+
+  loadEntries();
+</script>
+
+</body>
+</html>
